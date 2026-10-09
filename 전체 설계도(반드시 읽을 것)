@@ -1,0 +1,19 @@
+seoul-bus-equity-dashboard
+
+app.py — 웹사이트 실행 파일
+
+models/
+
+bus_stop.py — BusStop 클래스
+district.py — District 클래스
+
+utils/
+
+data_loader.py — DataLoader 클래스
+visualizer.py — Visualizer 클래스
+
+data/ — 서울시 공공데이터 CSV
+
+requirements.txt — 필요한 라이브러리
+
+README.md — 프로젝트 설명서
