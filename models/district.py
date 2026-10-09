@@ -42,3 +42,44 @@ class District:
                 raise ValueError(f"{name}는 유효한 음이 아닌 값이어야 합니다(면적은 양수).")
         if isinstance(self.bus_stop_count, bool) or not isinstance(self.bus_stop_count, int) or self.bus_stop_count < 0:
             raise ValueError("bus_stop_count는 음이 아닌 정수여야 합니다.")
+
+    #면적당 버스정류장 수 
+    def calculate_stop_density(self) -> float:
+        """면적 1km²당 버스정류장 수를 계산합니다."""
+        return self.bus_stop_count / self.area
+
+    #생할인구당 버스정류장 수
+    def calculate_stops_per_population(self) -> float:
+        """생활인구 1만 명당 버스정류장 수를 계산합니다."""
+        if self.living_population == 0:
+            raise ValueError("생활인구가 0이면 계산할 수 없습니다.")
+
+        return self.bus_stop_count / self.living_population * 10000
+
+    #각 변수를 0에서 100 사이로 조정
+    @staticmethod
+    def normalize(value: float, min_value: float, max_value: float) -> float:
+        if min_value > max_value:
+            raise ValueError("최솟값은 최댓값보다 클 수 없습니다.")
+
+        if not min_value <= value <= max_value:
+            raise ValueError("값은 최솟값과 최댓값 사이에 있어야 합니다.")
+
+        if max_value == min_value:
+            return 50.0
+
+        return (value - min_value) / (max_value - min_value) * 100
+
+    
+
+    #상대적인 형평성을 계산(0에서 100 사이)
+    def calculate_equity_score(self, density_min: float, density_max: float, population_min: float, population_max: float) -> float:
+
+        density = self.calculate_stop_density()
+        population = self.calculate_stops_per_population()
+
+        density_score = self.normalize(density, density_min, density_max)
+        population_score = self.normalize(population, population_min, population_max)
+
+        return density_score * 0.5 + population_score * 0.5
+    
