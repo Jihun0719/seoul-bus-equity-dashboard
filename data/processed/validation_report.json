@@ -1,0 +1,44 @@
+{
+  "raw_rows": {
+    "bus_stops": 11236,
+    "population": 35672,
+    "districts": 25
+  },
+  "district_crs": "EPSG:5181",
+  "bus_stops": {
+    "excluded_stop_types": 8,
+    "invalid_rows": 0,
+    "duplicate_rows": 0,
+    "rows": 11228
+  },
+  "population": {
+    "date": "20261004",
+    "rows": 25
+  },
+  "districts": {
+    "rows": 25,
+    "crs": "EPSG:5181",
+    "fixed_geometries": 0
+  },
+  "merge": {
+    "assigned_stops": 11215,
+    "unassigned_stops": 13,
+    "unassigned_stop_ids": [
+      "11202",
+      "17238",
+      "18128",
+      "18129",
+      "18776",
+      "18993",
+      "24381",
+      "24384",
+      "24411",
+      "24433",
+      "24614",
+      "25003",
+      "25004"
+    ],
+    "multiple_assigned_stops": 0,
+    "multiple_assigned_stop_ids": []
+  }
+}
