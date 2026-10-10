@@ -5,10 +5,10 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 from shapely.geometry import mapping
-"""express사용을 위한 호출"""
-import plotly.express as px
+
 
 class Visualizer:
     """C 담당 객체 및 D 담당 계산 메서드를 활용하는 지도 시각화 클래스."""
@@ -135,7 +135,6 @@ class Visualizer:
         else:
             geometry = df.loc[df["district_code"] == selected_district_code, "geometry"].iloc[0]
             minx, miny, maxx, maxy = geometry.bounds
-            # 경계 밖 여백 12%를 추가해 확대된 지도가 잘리지 않게 합니다.
             padx = max((maxx - minx) * 0.12, 0.006)
             pady = max((maxy - miny) * 0.12, 0.006)
             fig.update_geos(
@@ -158,22 +157,21 @@ class Visualizer:
         )
         return fig
 
-# ==================== F 담당 영역 (차트 시각화) ====================
+    # ==================== F 담당 영역 ====================
     def create_bar_chart(self, selected_district_code: str | None = None) -> go.Figure:
         """
-        F-1: 자치구별 종합 형평성 점수 막대그래프
-        selected_district_code가 전달되면 해당 자치구의 막대 색상을 파란색으로 강조합니다.
+        F-1: 자치구별 종합 형평성 점수 비교 막대그래프
         """
         df = self.prepare_map_data().sort_values("equity_score", ascending=True)
 
         if selected_district_code is not None:
             selected_district_code = str(selected_district_code)
-
-        # 선택된 자치구 강조 색상 (선택 구: 파란색, 나머지: 회색)
-        colors = [
-            "#173a75" if str(code) == selected_district_code else "#CBD5E1"
-            for code in df["district_code"]
-        ]
+            colors = [
+                "#1D4ED8" if str(code) == selected_district_code else "#E2E8F0"
+                for code in df["district_code"]
+            ]
+        else:
+            colors = ["#64748B"] * len(df)
 
         fig = go.Figure(
             go.Bar(
@@ -190,19 +188,18 @@ class Visualizer:
             xaxis_title="형평성 점수 (점)",
             yaxis_title="자치구",
             template="plotly_white",
-            height=450,
-            margin=dict(l=10, r=10, t=50, b=10),
+            height=750,
+            margin=dict(l=80, r=20, t=50, b=40),
+            yaxis=dict(tickfont=dict(size=11), dtick=1)
         )
         return fig
 
     def create_scatter_plot(self, selected_district_code: str | None = None) -> go.Figure:
         """
         F-2: 인구수 대비 버스 정류소 수 관계 산점도 및 추세선
-        - 별도의 별표 강조 마커나 범례 없이 전체 분포 및 추세선을 깔끔하게 표시합니다.
         """
         df = self.prepare_map_data()
 
-        # 전체 자치구 기본 산점도 및 OLS 추세선 생성
         fig = px.scatter(
             df,
             x="living_population",
@@ -217,38 +214,32 @@ class Visualizer:
             trendline="ols",
         )
 
-        # 모든 점의 스타일을 통일 (강조 마커 제거)
         fig.update_traces(
             textposition="top center",
-            marker=dict(size=9, color="#426ab3", opacity=0.85),
+            textfont=dict(size=10),
+            marker=dict(size=9, color="#64748B", opacity=0.8),
             selector=dict(mode="markers+text")
         )
 
-        fig.update_layout(
-            template="plotly_white",
-            height=500,
-            margin=dict(l=10, r=10, t=50, b=10),
-            showlegend=False  # 불필요한 강조 범례 제거
-        )
-        return fig
-        # 선택한 자치구 점 강조
-        if selected_district_code is not None and selected_district_code in set(df["district_code"]):
-            selected_row = df[df["district_code"] == selected_district_code].iloc[0]
-            fig.add_trace(
-                go.Scatter(
-                    x=[selected_row["living_population"]],
-                    y=[selected_row["bus_stop_count"]],
-                    mode="markers",
-                    marker=dict(size=14, color="#173a75", symbol="star"),
-                    name="선택 자치구",
-                    hoverinfo="skip",
+        if selected_district_code is not None:
+            selected_district_code = str(selected_district_code)
+            if selected_district_code in set(df["district_code"].astype(str)):
+                selected_row = df[df["district_code"].astype(str) == selected_district_code].iloc[0]
+                fig.add_trace(
+                    go.Scatter(
+                        x=[selected_row["living_population"]],
+                        y=[selected_row["bus_stop_count"]],
+                        mode="markers",
+                        marker=dict(size=15, color="#1D4ED8", symbol="star"),
+                        name="선택 자치구",
+                        hovertemplate=f"<b>{selected_row['district_name']} (선택됨)</b><br>생활인구: %{{x:,.0f}}명<br>정류소: %{{y:,.0f}}개<extra></extra>",
+                    )
                 )
-            )
 
-        fig.update_traces(textposition="top center")
         fig.update_layout(
             template="plotly_white",
-            height=450,
-            margin=dict(l=10, r=10, t=50, b=10),
+            height=600,
+            margin=dict(l=50, r=20, t=50, b=50),
+            showlegend=False
         )
         return fig
