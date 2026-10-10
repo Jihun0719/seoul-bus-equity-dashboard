@@ -3,3 +3,5 @@ geopandas
 pyogrio
 shapely
 pytest
+streamlit
+plotly

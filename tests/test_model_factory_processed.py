@@ -43,6 +43,7 @@ def test_invalid_input(modify):
     elif modify == 'missing_column':
         stops = stops.drop(columns='district_code')
     elif modify == 'numeric_id':
+        stops['stop_id'] = stops['stop_id'].astype(object)
         stops.loc[0, 'stop_id'] = 1001
     with pytest.raises(ValueError):
         create_models(stops, districts)
