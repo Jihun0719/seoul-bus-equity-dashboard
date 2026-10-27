@@ -65,20 +65,20 @@ class DataLoader:
             self.bus_file, {'노드 ID': str, '정류소번호': str})
         self.population_data = self.read_csv(
             self.population_file, {'기준일ID': str, '시구코드': str})
-        self.district_data = self.read_shp(self.district_file)
-
+        self.district_data = self.read_shp(self.district_file) #자치구정보, 경계도형
+        
         self.validation_report['raw_rows'] = {
             'bus_stops': len(self.bus_stop_data),
             'population': len(self.population_data),
             'districts': len(self.district_data),
-        }
-        self.validation_report['district_crs'] = str(self.district_data.crs)
+        } # 표의 행 개수 저장
+        self.validation_report['district_crs'] = str(self.district_data.crs) #현재 지도 데이터 좌표계 저장
 
     @classmethod
     def read_csv(cls, path, dtype):
         if not path.exists():
             raise FileNotFoundError(f'파일이 없습니다: {path}')
-        for encoding in cls.ENCODINGS:
+        for encoding in cls.ENCODINGS: #UTF-8 먼저 인코딩 후 맞지않음 CP949로 다시 인코딩으로 읽기!
             try:
                 return pd.read_csv(path, encoding=encoding, dtype=dtype)
             except UnicodeDecodeError:
@@ -87,14 +87,17 @@ class DataLoader:
 
     @classmethod
     def read_shp(cls, path):
+        #자치구 지도 파일 .shp 읽기 path 는 .shp 파일경로 Path객체
         if not path.exists():
             raise FileNotFoundError(f'파일이 없습니다: {path}')
+        #앞에 SHP_COMPANIONS에 설정한 확장자 확인으로 함께 있어야하는 파일 확인하기
         missing = [ext for ext in cls.SHP_COMPANIONS
-                   if not path.with_suffix(ext).exists()]
+                   if not path.with_suffix(ext).exists()] 
+                    # path.with_suffix(ext)는 경로의 확장자 부분만 바꾸는 메서드
         if missing:
             raise FileNotFoundError(
                 f'{path.name}와 함께 있어야 할 파일이 없습니다: {missing}')
-        return gpd.read_file(path)
+        return gpd.read_file(path) #모두 있으면 지도 데이터 읽기(GeoDataFrame객체)으로 반환
 
     # [B] 정제
 
@@ -112,37 +115,40 @@ class DataLoader:
         self.check_same_codes(self.district_data, self.population_data)
 
     @staticmethod
-    def require_columns(table, columns, label):
+    def require_columns(table, columns, label): #table: 검사할표, columns: 꼭 있어야 할 열목록 #label: 데이터이름
         missing = [c for c in columns if c not in table.columns]
         if missing:
             raise ValueError(f'{label} 데이터에 필요한 열이 없습니다: {missing}')
 
-    def clean_bus_stops(self, raw):
+    def clean_bus_stops(self, raw): #raw는 정리전 원본표
         self.require_columns(raw, [*self.BUS_COLUMNS, self.STOP_TYPE_COLUMN],
                              '버스정류소')
 
-        is_excluded = raw[self.STOP_TYPE_COLUMN].isin(self.EXCLUDED_STOP_TYPES)
-        table = raw[~is_excluded][list(self.BUS_COLUMNS)]
-        table = table.rename(columns=self.BUS_COLUMNS)
+        is_excluded = raw[self.STOP_TYPE_COLUMN].isin(self.EXCLUDED_STOP_TYPES) # raw['정류소 타입'].isin(('한강선착장',))
+        table = raw[~is_excluded][list(self.BUS_COLUMNS)] #is_excluded가 아닌, 필요할 열들만 선택
+        table = table.rename(columns=self.BUS_COLUMNS) #선택한 열 이름 바꾸기
 
+        #공백 제거 & 숫자 변환 ' 서울역' -> '서울역' & '126.98' -> 126.98
         table['stop_id'] = table['stop_id'].str.strip()
         table['stop_name'] = table['stop_name'].str.strip()
         table['longitude'] = pd.to_numeric(table['longitude'], errors='coerce')
         table['latitude'] = pd.to_numeric(table['latitude'], errors='coerce')
 
+        #정류장 id가 결측값, 경도,위도가 이상한값
         is_invalid = (table['stop_id'].isna()
                       | ~table['longitude'].between(-180, 180)   # NaN도 걸린다
                       | ~table['latitude'].between(-90, 90))
         table = table[~is_invalid]
 
         rows_before = len(table)
-        table = table.drop_duplicates()
+        table = table.drop_duplicates()    #4개의 열이 모두 같은 중복제거
 
-        conflicts = table[table['stop_id'].duplicated(keep=False)]
-        conflicting_ids = sorted(conflicts['stop_id'].unique())
+        conflicts = table[table['stop_id'].duplicated(keep=False)] #같은 Id, 다른 정보 행 추출
+        conflicting_ids = sorted(conflicts['stop_id'].unique()) #문제 Id 뽑아서 정렬
         if conflicting_ids:
-            raise ValueError(f'같은 stop_id에 다른 정보가 있습니다: {conflicting_ids[:10]}')
+            raise ValueError(f'같은 stop_id에 다른 정보가 있습니다: {conflicting_ids[:10]}') #나중에 수정 해야할듯 프로그램 종료됨
 
+        #처리 기록
         info = {
             'excluded_stop_types': int(is_excluded.sum()),
             'invalid_rows': int(is_invalid.sum()),
@@ -154,15 +160,15 @@ class DataLoader:
     def clean_population(self, raw):
         self.require_columns(raw, list(self.POPULATION_COLUMNS), '생활인구')
 
-        table = raw[list(self.POPULATION_COLUMNS)]
+        table = raw[list(self.POPULATION_COLUMNS)] #4개의 열만 있는 Dataframe 객체
         table = table.rename(columns=self.POPULATION_COLUMNS)
         table['date'] = table['date'].str.strip()
         table['district_code'] = table['district_code'].str.strip()
         table['living_population'] = pd.to_numeric(
             table['living_population'], errors='coerce')
-        table = table[table['district_code'] != self.SEOUL_TOTAL_CODE]
+        table = table[table['district_code'] != self.SEOUL_TOTAL_CODE] #서울 전체 합계 행 11000 은 자치구 아님
 
-        day = table[table['date'] == self.target_date].drop_duplicates()
+        day = table[table['date'] == self.target_date].drop_duplicates() #target_date 날짜 행만 남기기
         if len(day) == 0:
             raise ValueError(
                 f'{self.target_date} 날짜의 생활인구가 없습니다 '
@@ -185,17 +191,17 @@ class DataLoader:
         if raw.crs is None:
             raise ValueError('자치구 경계에 좌표계 정보(.prj)가 없습니다')
 
-        table = raw[[*self.DISTRICT_COLUMNS, 'geometry']]
+        table = raw[[*self.DISTRICT_COLUMNS, 'geometry']] #필요한 열만 선택 ex) 'SIGNGU_CD', 'SIGNGU_NM', 'geometry'
         table = table.rename(columns=self.DISTRICT_COLUMNS)
-        table['district_code'] = table['district_code'].astype(str).str.strip()
-        table['district_name'] = table['district_name'].astype(str).str.strip()
+        table['district_code'] = table['district_code'].astype(str).str.strip() #11110        → '11110'
+        table['district_name'] = table['district_name'].astype(str).str.strip() #'  종로구  ' → '종로구'
 
         if table['district_code'].duplicated().any():
             raise ValueError('자치구 경계에 중복된 코드가 있습니다')
         if len(table) != self.DISTRICT_COUNT:
             raise ValueError(f'자치구 경계가 {len(table)}개입니다')
 
-        is_broken = ~table.is_valid
+        is_broken = ~table.is_valid #유효하지 않은 경계 도형(ex)다각형 경계선이 자기자신 가로지름
         if is_broken.any():
             table.loc[is_broken, 'geometry'] = table[is_broken].make_valid()
 
@@ -228,7 +234,7 @@ class DataLoader:
         self.validation_report['merge'] = info
         self.check_merge_result(stops, summary)
 
-    def assign_districts(self, stops, districts):
+    def assign_districts(self, stops, districts): 
         points = gpd.GeoDataFrame(
             stops,
             geometry=gpd.points_from_xy(stops['longitude'], stops['latitude']),
