@@ -9,6 +9,7 @@
     "excluded_stop_types": 8,
     "invalid_rows": 0,
     "duplicate_rows": 0,
+    "conflicting_stop_ids": [],
     "rows": 11228
   },
   "population": {

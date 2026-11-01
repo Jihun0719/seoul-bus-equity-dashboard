@@ -27,7 +27,8 @@ class ResultSaver:
 
 
 def show_summary(loader, report):
-    print(loader)
+    print(f'기준일 {loader.target_date}: 정류장 {len(loader.bus_stop_data)}개, '
+          f'자치구 {len(loader.district_data)}개')
     print(f'서울 밖이라 제외한 정류장: {report["merge"]["unassigned_stops"]}개')
     print(f'한강선착장으로 제외한 정류장: '
           f'{report["bus_stops"]["excluded_stop_types"]}개')
@@ -39,17 +40,15 @@ def show_summary(loader, report):
 def main():
     # python process.py 20260901 처럼 날짜를 줄 수 있다
     target_date = sys.argv[1] if len(sys.argv) > 1 else TARGET_DATE
-    loader = DataLoader.from_folder(RAW_DIR, target_date)
+    loader = DataLoader(RAW_DIR, target_date)
     saver = ResultSaver(PROCESSED_DIR)
 
     try:
         stops, districts, report = loader.run()
     except FileNotFoundError as e:
-        print('원본 파일을 찾지 못했습니다:', e)
-        return
+        sys.exit(f'원본 파일을 찾지 못했습니다: {e}')
     except ValueError as e:
-        print('데이터에 문제가 있습니다:', e)
-        return
+        sys.exit(f'데이터에 문제가 있습니다: {e}')
 
     saver.save(stops, districts, report)
     show_summary(loader, report)
