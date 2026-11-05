@@ -5,3 +5,4 @@ shapely
 pytest
 streamlit
 plotly
+statsmodels
